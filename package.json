@@ -1,0 +1,37 @@
+{
+  "name": "photobox",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:web": "vite",
+    "dev:api": "wrangler dev --config worker/wrangler.jsonc",
+    "build": "pnpm typecheck && vite build",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
+    "typecheck:web": "vue-tsc --noEmit",
+    "typecheck:api": "tsc -p worker/tsconfig.json --noEmit",
+    "cf:typegen": "wrangler types --config worker/wrangler.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply photobox --local --config worker/wrangler.jsonc"
+  },
+  "dependencies": {
+    "hono": "^4.12.7",
+    "konva": "^10.2.0",
+    "pdf-lib": "^1.17.1",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.25",
+    "vue-konva": "^3.4.0",
+    "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260313.1",
+    "@types/node": "^24.10.1",
+    "@vitejs/plugin-vue": "^6.0.2",
+    "@vue/tsconfig": "^0.8.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vue-tsc": "^3.1.5"
+  }
+}

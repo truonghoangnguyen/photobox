@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "photobox-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-14",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_URL": "http://localhost:5173"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "photobox",
+      "database_id": "local-photobox-db",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "photobox-assets"
+    }
+  ]
+}
