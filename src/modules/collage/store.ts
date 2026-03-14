@@ -1,7 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getTemplateById, COLLAGE_TEMPLATES } from './templates'
-import { createEmptyBinding, type PhotoAsset, type PhotoSlot, type SlotPhotoState } from './types'
+import { createEmptyBinding, type PhotoSlot, type SlotPhotoState } from './types'
+import type { PhotoAsset } from '../print-core/types'
+import { createDefaultTransform, type PhotoTransform } from '../print-core/transform'
 
 const DEFAULT_EXPORT_FILENAME = 'photobox-collage.pdf'
 const DEFAULT_TEMPLATE = COLLAGE_TEMPLATES[0]
@@ -43,8 +45,10 @@ function reconcileBindings(
 export const useCollageStore = defineStore('collage', () => {
   const selectedTemplateId = ref(DEFAULT_TEMPLATE.id)
   const selectedSlotId = ref<string | null>(DEFAULT_TEMPLATE.slots[0]?.id ?? null)
+  const selectedGridPhotoId = ref<string | null>(null)
   const photos = ref<Record<string, PhotoAsset>>({})
   const photoOrder = ref<string[]>([])
+  const gridPhotoTransforms = ref<Record<string, PhotoTransform>>({})
   const slotBindings = ref<Record<string, SlotPhotoState>>(
     reconcileBindings({}, DEFAULT_TEMPLATE.slots),
   )
@@ -114,8 +118,13 @@ export const useCollageStore = defineStore('collage', () => {
         naturalWidth: metadata.naturalWidth,
         naturalHeight: metadata.naturalHeight,
       }
+      gridPhotoTransforms.value[id] = createDefaultTransform()
       photoOrder.value.unshift(id)
       addedPhotoIds.push(id)
+    }
+
+    if (!selectedGridPhotoId.value && addedPhotoIds[0]) {
+      selectedGridPhotoId.value = addedPhotoIds[0]
     }
 
     return addedPhotoIds
@@ -129,11 +138,36 @@ export const useCollageStore = defineStore('collage', () => {
     slotBindings.value[slotId] = {
       slotId,
       imageId: photoId,
-      scale: 1,
-      offsetX: 0,
-      offsetY: 0,
+      ...createDefaultTransform(),
     }
     selectedSlotId.value = slotId
+  }
+
+  async function replacePhoto(photoId: string, file: File) {
+    const current = photos.value[photoId]
+
+    if (!current || !file.type.startsWith('image/')) {
+      return false
+    }
+
+    const src = URL.createObjectURL(file)
+
+    try {
+      const metadata = await readImageMetadata(src)
+      URL.revokeObjectURL(current.src)
+      photos.value[photoId] = {
+        id: photoId,
+        name: file.name,
+        src,
+        naturalWidth: metadata.naturalWidth,
+        naturalHeight: metadata.naturalHeight,
+      }
+      gridPhotoTransforms.value[photoId] = createDefaultTransform()
+      return true
+    } catch (error) {
+      URL.revokeObjectURL(src)
+      throw error
+    }
   }
 
   function assignPhotoToFirstEmpty(photoId: string) {
@@ -150,6 +184,29 @@ export const useCollageStore = defineStore('collage', () => {
     slotBindings.value[slotId] = { ...current, ...patch, slotId }
   }
 
+  function selectGridPhoto(photoId: string | null) {
+    if (!photoId || photos.value[photoId]) {
+      selectedGridPhotoId.value = photoId
+    }
+  }
+
+  function updateGridPhotoTransform(photoId: string, patch: Partial<PhotoTransform>) {
+    if (!photos.value[photoId]) {
+      return
+    }
+
+    const current = gridPhotoTransforms.value[photoId] ?? createDefaultTransform()
+    gridPhotoTransforms.value[photoId] = { ...current, ...patch }
+  }
+
+  function resetGridPhotoTransform(photoId: string) {
+    if (!photos.value[photoId]) {
+      return
+    }
+
+    gridPhotoTransforms.value[photoId] = createDefaultTransform()
+  }
+
   function resetSlotTransform(slotId: string) {
     const binding = slotBindings.value[slotId]
 
@@ -159,9 +216,7 @@ export const useCollageStore = defineStore('collage', () => {
 
     slotBindings.value[slotId] = {
       ...binding,
-      scale: 1,
-      offsetX: 0,
-      offsetY: 0,
+      ...createDefaultTransform(),
     }
   }
 
@@ -177,7 +232,12 @@ export const useCollageStore = defineStore('collage', () => {
     }
 
     delete photos.value[photoId]
+    delete gridPhotoTransforms.value[photoId]
     photoOrder.value = photoOrder.value.filter((id) => id !== photoId)
+
+    if (selectedGridPhotoId.value === photoId) {
+      selectedGridPhotoId.value = photoOrder.value[0] ?? null
+    }
 
     Object.values(slotBindings.value).forEach((binding) => {
       if (binding.imageId === photoId) {
@@ -186,11 +246,32 @@ export const useCollageStore = defineStore('collage', () => {
     })
   }
 
+  function clearAllPhotos() {
+    for (const photoId of photoOrder.value) {
+      const photo = photos.value[photoId]
+
+      if (photo) {
+        URL.revokeObjectURL(photo.src)
+      }
+    }
+
+    photos.value = {}
+    photoOrder.value = []
+    gridPhotoTransforms.value = {}
+    selectedGridPhotoId.value = null
+
+    Object.keys(slotBindings.value).forEach((slotId) => {
+      slotBindings.value[slotId] = createEmptyBinding(slotId)
+    })
+  }
+
   return {
     selectedTemplateId,
     selectedSlotId,
+    selectedGridPhotoId,
     photos,
     photoOrder,
+    gridPhotoTransforms,
     slotBindings,
     exportSettings,
     template,
@@ -201,11 +282,16 @@ export const useCollageStore = defineStore('collage', () => {
     selectTemplate,
     selectSlot,
     addPhotos,
+    replacePhoto,
     assignPhotoToSlot,
     assignPhotoToFirstEmpty,
+    selectGridPhoto,
+    updateGridPhotoTransform,
+    resetGridPhotoTransform,
     updateSlotTransform,
     resetSlotTransform,
     clearSlot,
     removePhoto,
+    clearAllPhotos,
   }
 })

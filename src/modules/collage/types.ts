@@ -1,7 +1,5 @@
-export interface PageSize {
-  width: number
-  height: number
-}
+import type { PageSize, PhotoAsset } from '../print-core/types'
+import { createDefaultTransform, type PhotoTransform } from '../print-core/transform'
 
 export interface PhotoSlot {
   id: string
@@ -24,20 +22,9 @@ export interface TemplateDefinition {
   slots: PhotoSlot[]
 }
 
-export interface PhotoAsset {
-  id: string
-  name: string
-  src: string
-  naturalWidth: number
-  naturalHeight: number
-}
-
-export interface SlotPhotoState {
+export interface SlotPhotoState extends PhotoTransform {
   slotId: string
   imageId: string | null
-  scale: number
-  offsetX: number
-  offsetY: number
 }
 
 export interface ExportSettings {
@@ -56,8 +43,6 @@ export function createEmptyBinding(slotId: string): SlotPhotoState {
   return {
     slotId,
     imageId: null,
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
+    ...createDefaultTransform(),
   }
 }

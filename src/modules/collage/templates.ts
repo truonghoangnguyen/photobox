@@ -1,9 +1,5 @@
 import type { TemplateDefinition } from './types'
-
-export const A4_PAGE = {
-  width: 1240,
-  height: 1754,
-}
+import { A4_PAGE } from '../print-core/constants'
 
 const top = 72
 const side = 72

@@ -110,7 +110,7 @@ function getSlotStyle(template: TemplateDefinition, slot: TemplateDefinition['sl
   padding: 14px;
   text-align: left;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  /* border-radius: 22px; */
   background: rgba(255, 255, 255, 0.7);
   scroll-snap-align: start;
   transition:

@@ -622,7 +622,7 @@ onMounted(async () => {
   display: grid;
   gap: 12px;
   padding: 16px;
-  border-radius: 18px;
+  /* border-radius: 18px; */
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.64);
 }

@@ -5,6 +5,7 @@ defineProps<{
   selectedSlot: PhotoSlot | null
   selectedBinding: SlotPhotoState | null
   selectedPhotoName: string | null
+  isUnlocked: boolean
   filledSlotCount: number
   totalSlotCount: number
   missingSlots: string[]
@@ -18,7 +19,11 @@ const emit = defineEmits<{
   zoomOut: []
   zoomReset: []
   setScale: [scale: number]
+  rotateLeft: []
+  rotateRight: []
+  replacePhoto: []
   clearSlot: []
+  toggleLock: []
   exportPdf: []
 }>()
 
@@ -42,6 +47,9 @@ function onScaleInput(event: Event) {
       <template v-if="selectedSlot">
         <strong>{{ selectedSlot.placeholder }}</strong>
         <span>{{ selectedBinding?.imageId ? selectedPhotoName : 'No photo assigned yet' }}</span>
+        <span v-if="selectedBinding?.imageId" class="lock-state">
+          {{ isUnlocked ? 'Unlocked: can zoom / rotate / move' : 'Locked: unlock to edit this photo' }}
+        </span>
       </template>
       <template v-else>
         <strong>No slot selected</strong>
@@ -58,7 +66,7 @@ function onScaleInput(event: Event) {
 
         <input
           class="zoom-range"
-          :disabled="!selectedBinding?.imageId"
+          :disabled="!selectedBinding?.imageId || !isUnlocked"
           type="range"
           min="1"
           max="3"
@@ -68,13 +76,13 @@ function onScaleInput(event: Event) {
         />
 
         <div class="button-row">
-          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId" @click="emit('zoomOut')">
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('zoomOut')">
             Zoom out
           </button>
-          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId" @click="emit('zoomIn')">
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('zoomIn')">
             Zoom in
           </button>
-          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId" @click="emit('zoomReset')">
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('zoomReset')">
             Reset
           </button>
         </div>
@@ -86,9 +94,30 @@ function onScaleInput(event: Event) {
           <strong>Current frame</strong>
         </div>
 
-        <button type="button" class="ghost-button ghost-button--danger" :disabled="!selectedBinding?.imageId" @click="emit('clearSlot')">
-          Clear selected slot
-        </button>
+        <div class="button-row">
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('rotateLeft')">
+            Rotate left
+          </button>
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('rotateRight')">
+            Rotate right
+          </button>
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId" @click="emit('toggleLock')">
+            {{ isUnlocked ? 'Lock' : 'Unlock' }}
+          </button>
+        </div>
+
+        <div class="button-row">
+          <button type="button" class="ghost-button" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('replacePhoto')">
+            Replace
+          </button>
+          <button type="button" class="ghost-button ghost-button--danger" :disabled="!selectedBinding?.imageId || !isUnlocked" @click="emit('clearSlot')">
+            Clear selected slot
+          </button>
+        </div>
+
+        <p v-if="selectedBinding?.imageId && !isUnlocked" class="lock-hint">
+          Only the unlocked photo can be adjusted at a time.
+        </p>
       </div>
     </div>
 
@@ -100,7 +129,7 @@ function onScaleInput(event: Event) {
           Fill these slots first: {{ missingSlots.join(', ') }}
         </p>
         <p v-else class="export-copy">
-          The PDF will be created as a single A4 portrait page using the current crop and positioning.
+          The PDF will include every generated template page using the current crop and positioning.
         </p>
         <p v-if="exportError" class="export-error">{{ exportError }}</p>
       </div>
@@ -158,7 +187,7 @@ function onScaleInput(event: Event) {
   display: grid;
   gap: 10px;
   padding: 16px;
-  border-radius: 20px;
+  /* border-radius: 20px; */
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.6);
 }
@@ -166,6 +195,13 @@ function onScaleInput(event: Event) {
 .selection-card span,
 .export-copy {
   color: var(--ink-soft);
+}
+
+.lock-state,
+.lock-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
 }
 
 .control-stack {
