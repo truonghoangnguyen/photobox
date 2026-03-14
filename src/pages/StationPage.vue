@@ -5,8 +5,8 @@ import { useRoute } from 'vue-router'
 import CollageStage from '../components/CollageStage.vue'
 import TemplatePicker from '../components/TemplatePicker.vue'
 import ToolbarPanel from '../components/ToolbarPanel.vue'
-import { resolveStationBySlug } from '../lib/api'
-import { exportCollageToPdf } from '../lib/export/pdf'
+import { createPrintJob, resolveStationBySlug } from '../lib/api'
+import { renderCollagePdfBlob } from '../lib/export/pdf'
 import { clampBinding } from '../modules/collage/layout'
 import { COLLAGE_TEMPLATES } from '../modules/collage/templates'
 import { useCollageStore } from '../modules/collage/store'
@@ -25,6 +25,7 @@ const pendingSlotId = ref<string | null>(null)
 const station = ref<StationSummary | null>(null)
 const stationLoading = ref(false)
 const stationError = ref<string | null>(null)
+const lastJobCode = ref<string | null>(null)
 
 const stationSlug = computed(() => {
   const raw = route.params.stationSlug
@@ -64,6 +65,10 @@ const statusMessage = computed(() => {
 
   if (missingRequiredSlots.value.length > 0) {
     return `Add ${missingRequiredSlots.value.length} more photo${missingRequiredSlots.value.length > 1 ? 's' : ''} to unlock the PDF export.`
+  }
+
+  if (lastJobCode.value) {
+    return `Print request ${lastJobCode.value} was sent to ${stationLabel.value}.`
   }
 
   return 'Ready to generate a one-page A4 PDF.'
@@ -181,15 +186,27 @@ async function handleExportPdf() {
 
   exporting.value = true
   exportError.value = null
+  lastJobCode.value = null
 
   try {
-    await exportCollageToPdf({
+    const pdfBlob = await renderCollagePdfBlob({
       template: template.value,
       bindings: slotBindings.value,
       photos: store.photos,
-      filename: `print-${stationSlug.value}.pdf`,
       exportScale: store.exportSettings.scale,
     })
+
+    const response = await createPrintJob(
+      {
+        stationSlug: stationSlug.value,
+        templateId: selectedTemplateId.value,
+        slotCount: template.value.slots.length,
+        totalAmount: 0,
+      },
+      pdfBlob,
+    )
+
+    lastJobCode.value = response.job.jobCode
   } catch (error) {
     exportError.value = error instanceof Error ? error.message : 'Failed to generate the PDF.'
   } finally {

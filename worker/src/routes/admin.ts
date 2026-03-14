@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { StationLookupResponse } from '../../../shared/contracts'
+import type { StationListResponse } from '../../../shared/contracts'
 import type { AppContext, StationRow } from '../types'
 import { toStationSummary } from '../types'
 
@@ -10,9 +10,7 @@ adminRoutes.get('/stations', async (context) => {
     'SELECT id, slug, name, location, status FROM stations ORDER BY created_at DESC',
   ).all<StationRow>()
 
-  return context.json<{
-    stations: StationLookupResponse['station'][]
-  }>({
+  return context.json<StationListResponse>({
     stations: (rows.results ?? []).map(toStationSummary),
   })
 })

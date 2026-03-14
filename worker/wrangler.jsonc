@@ -7,20 +7,20 @@
     "enabled": true
   },
   "vars": {
-    "APP_URL": "http://localhost:5173"
+    "APP_URL": "https://photobox.pages.dev"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "photobox",
-      "database_id": "local-photobox-db",
+      "database_id": "3bea398e-9621-4f35-bbcb-702b42715d01",
       "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "ASSETS",
-      "bucket_name": "photobox-assets"
+      "bucket_name": "photobox"
     }
   ]
 }

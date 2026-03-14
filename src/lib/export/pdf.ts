@@ -6,7 +6,6 @@ interface ExportOptions {
   template: TemplateDefinition
   bindings: Record<string, SlotPhotoState>
   photos: Record<string, PhotoAsset>
-  filename: string
   exportScale: number
 }
 
@@ -46,7 +45,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export async function exportCollageToPdf(options: ExportOptions) {
+export async function renderCollagePdfBlob(options: ExportOptions) {
   const missingSlots = options.template.slots.filter(
     (slot) => !options.bindings[slot.id]?.imageId,
   )
@@ -126,5 +125,10 @@ export async function exportCollageToPdf(options: ExportOptions) {
   })
 
   const pdfBytes = await pdf.save()
-  downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), options.filename)
+  return new Blob([pdfBytes], { type: 'application/pdf' })
+}
+
+export async function exportCollageToPdf(options: ExportOptions & { filename: string }) {
+  const blob = await renderCollagePdfBlob(options)
+  downloadBlob(blob, options.filename)
 }
