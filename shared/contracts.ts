@@ -1,4 +1,5 @@
 export type StationStatus = 'active' | 'inactive'
+export type UserRole = 'super_admin' | 'station_operator'
 
 export type PrintJobStatus =
   | 'draft'
@@ -42,6 +43,30 @@ export interface ApiErrorResponse {
   error: string
 }
 
+export interface AuthUser {
+  id: string
+  username: string
+  name: string
+  role: UserRole
+  stationId: string | null
+  stationSlug: string | null
+  stationName: string | null
+}
+
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface LoginResponse {
+  token: string
+  user: AuthUser
+}
+
+export interface SessionResponse {
+  user: AuthUser
+}
+
 export interface CreatePrintJobRequest {
   stationSlug: string
   templateId: string
@@ -55,4 +80,39 @@ export interface CreatePrintJobResponse {
 
 export interface PrintJobListResponse {
   jobs: PrintJobSummary[]
+}
+
+export interface ManagedUser {
+  id: string
+  username: string
+  name: string
+  role: UserRole
+  stationId: string | null
+  stationSlug: string | null
+  stationName: string | null
+  createdAt: string
+}
+
+export interface UserListResponse {
+  users: ManagedUser[]
+}
+
+export interface CreateUserRequest {
+  username: string
+  password: string
+  name: string
+  stationId: string
+}
+
+export interface CreateUserResponse {
+  user: ManagedUser
+}
+
+export interface ResetPasswordRequest {
+  password: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
 }

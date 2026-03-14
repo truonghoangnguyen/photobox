@@ -1,11 +1,21 @@
 import { Hono } from 'hono'
 import type { ApiErrorResponse, PrintJobListResponse, PrintJobSummary } from '../../../shared/contracts'
+import { requireAuth } from '../auth'
 import type { AppContext } from '../types'
 
 export const operatorRoutes = new Hono<AppContext>()
 
 operatorRoutes.get('/print-jobs', async (context) => {
-  const stationSlug = context.req.query('stationSlug')
+  const authResult = await requireAuth(context)
+
+  if (authResult instanceof Response) {
+    return authResult
+  }
+
+  const stationSlug =
+    authResult.role === 'station_operator'
+      ? authResult.stationSlug
+      : context.req.query('stationSlug')
 
   let query = `
       SELECT
@@ -41,6 +51,12 @@ operatorRoutes.get('/print-jobs', async (context) => {
 })
 
 operatorRoutes.patch('/print-jobs/:id/status', async (context) => {
+  const authResult = await requireAuth(context)
+
+  if (authResult instanceof Response) {
+    return authResult
+  }
+
   const id = context.req.param('id')
   const body = (await context.req.json<{ status?: string }>().catch(() => ({}))) as { status?: string }
   
@@ -53,10 +69,19 @@ operatorRoutes.patch('/print-jobs/:id/status', async (context) => {
     return context.json<ApiErrorResponse>({ error: 'Invalid status.' }, 400)
   }
 
+  const stationScopeClause =
+    authResult.role === 'station_operator' && authResult.stationId
+      ? ' AND station_id = ?'
+      : ''
+  const params =
+    authResult.role === 'station_operator' && authResult.stationId
+      ? [body.status, id, authResult.stationId]
+      : [body.status, id]
+
   const result = await context.env.DB.prepare(
-    'UPDATE print_jobs SET status = ? WHERE id = ?'
+    `UPDATE print_jobs SET status = ? WHERE id = ?${stationScopeClause}`
   )
-    .bind(body.status, id)
+    .bind(...params)
     .run()
 
   if (result.meta.changes === 0) {
@@ -67,12 +92,27 @@ operatorRoutes.patch('/print-jobs/:id/status', async (context) => {
 })
 
 operatorRoutes.get('/print-jobs/:id/file', async (context) => {
+  const authResult = await requireAuth(context)
+
+  if (authResult instanceof Response) {
+    return authResult
+  }
+
   const id = context.req.param('id')
 
+  const stationScopeClause =
+    authResult.role === 'station_operator' && authResult.stationId
+      ? ' AND station_id = ?'
+      : ''
+  const jobParams =
+    authResult.role === 'station_operator' && authResult.stationId
+      ? [id, authResult.stationId]
+      : [id]
+
   const job = await context.env.DB.prepare(
-    'SELECT output_r2_key AS outputR2Key FROM print_jobs WHERE id = ? LIMIT 1'
+    `SELECT output_r2_key AS outputR2Key FROM print_jobs WHERE id = ?${stationScopeClause} LIMIT 1`
   )
-    .bind(id)
+    .bind(...jobParams)
     .first<{ outputR2Key: string | null }>()
 
   if (!job || !job.outputR2Key) {

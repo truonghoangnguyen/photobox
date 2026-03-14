@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { adminRoutes } from './routes/admin'
+import { authRoutes } from './routes/auth'
 import { operatorRoutes } from './routes/operator'
 import { publicRoutes } from './routes/public'
 import type { AppContext } from './types'
@@ -24,6 +25,7 @@ app.get('/health', (context) => {
   })
 })
 
+app.route('/api/auth', authRoutes)
 app.route('/api/public', publicRoutes)
 app.route('/api/operator', operatorRoutes)
 app.route('/api/admin', adminRoutes)

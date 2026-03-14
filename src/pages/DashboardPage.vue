@@ -1,19 +1,53 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { listPrintJobs, listStations, updatePrintJobStatus, getPrintJobFileUrl } from '../lib/api'
+import {
+  changeOwnPassword,
+  createUser,
+  deleteUser,
+  getCurrentUser,
+  getPrintJobFileBlob,
+  listPrintJobs,
+  listStations,
+  listUsers,
+  loginDashboard,
+  logoutDashboard,
+  resetUserPassword,
+  updatePrintJobStatus,
+  type AuthUser,
+  type ManagedUser,
+} from '../lib/api'
 import type { PrintJobSummary, StationSummary } from '../../shared/contracts'
 
 const stations = ref<StationSummary[]>([])
 const jobs = ref<PrintJobSummary[]>([])
+const users = ref<ManagedUser[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-const activeTab = ref<'jobs' | 'stations'>('jobs')
+const loginError = ref<string | null>(null)
+const currentUser = ref<AuthUser | null>(null)
+const activeTab = ref<'jobs' | 'stations' | 'users'>('jobs')
+const loginForm = ref({
+  username: 'nguyen',
+  password: '',
+})
+const createUserForm = ref({
+  username: '',
+  password: '',
+  name: '',
+  stationId: '',
+})
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+})
+const passwordMessage = ref<string | null>(null)
 
 const activeStations = computed(() => stations.value.filter((station) => station.status === 'active').length)
 const pendingJobs = computed(
   () => jobs.value.filter((job) => job.status === 'pending' || job.status === 'processing').length,
 )
+const isAdmin = computed(() => currentUser.value?.role === 'super_admin')
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-US', {
@@ -31,16 +65,50 @@ function formatDate(value: string) {
 }
 
 async function loadDashboard() {
+  if (!currentUser.value) {
+    loading.value = false
+    return
+  }
+
   try {
     error.value = null
-    const [stationsResponse, jobsResponse] = await Promise.all([listStations(), listPrintJobs()])
-    stations.value = stationsResponse.stations
+    const requests = [listPrintJobs()]
+
+    if (isAdmin.value) {
+      requests.push(listStations(), listUsers())
+    }
+
+    const [jobsResponse, stationsResponse, usersResponse] = await Promise.all(requests)
     jobs.value = jobsResponse.jobs
+    stations.value = stationsResponse?.stations ?? []
+    users.value = usersResponse?.users ?? []
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : 'Unable to load dashboard data.'
   } finally {
     loading.value = false
   }
+}
+
+async function handleLogin() {
+  try {
+    loginError.value = null
+    loading.value = true
+    const response = await loginDashboard(loginForm.value)
+    currentUser.value = response.user
+    createUserForm.value.stationId = stations.value[0]?.id ?? ''
+    await loadDashboard()
+  } catch (err) {
+    loading.value = false
+    loginError.value = err instanceof Error ? err.message : 'Unable to login.'
+  }
+}
+
+async function handleLogout() {
+  await logoutDashboard()
+  currentUser.value = null
+  jobs.value = []
+  stations.value = []
+  users.value = []
 }
 
 async function cancelJob(job: PrintJobSummary) {
@@ -63,15 +131,74 @@ async function resetJob(job: PrintJobSummary) {
 }
 
 function printJob(job: PrintJobSummary) {
-  if (!job.outputR2Key) {
-    alert('No file available to print.')
+  void (async () => {
+    if (!job.outputR2Key) {
+      alert('No file available to print.')
+      return
+    }
+
+    const blob = await getPrintJobFileBlob(job.id)
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    window.setTimeout(() => URL.revokeObjectURL(url), 30000)
+  })()
+}
+
+async function handleCreateUser() {
+  try {
+    await createUser(createUserForm.value)
+    createUserForm.value = {
+      username: '',
+      password: '',
+      name: '',
+      stationId: createUserForm.value.stationId || stations.value[0]?.id || '',
+    }
+    await loadDashboard()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to create user.')
+  }
+}
+
+async function handleDeleteUser(userId: string) {
+  try {
+    await deleteUser(userId)
+    await loadDashboard()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to delete user.')
+  }
+}
+
+async function handleResetUserPassword(user: ManagedUser) {
+  const nextPassword = window.prompt(`Set a new password for ${user.username}`, '')
+
+  if (nextPassword === null) {
     return
   }
-  const url = getPrintJobFileUrl(job.id)
-  window.open(url, '_blank')
+
+  try {
+    await resetUserPassword(user.id, { password: nextPassword })
+    alert(`Password reset for ${user.username}.`)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to reset password.')
+  }
+}
+
+async function handleChangeOwnPassword() {
+  try {
+    passwordMessage.value = null
+    await changeOwnPassword(passwordForm.value)
+    passwordForm.value = {
+      currentPassword: '',
+      newPassword: '',
+    }
+    passwordMessage.value = 'Password updated successfully.'
+  } catch (err) {
+    passwordMessage.value = err instanceof Error ? err.message : 'Failed to change password.'
+  }
 }
 
 onMounted(async () => {
+  currentUser.value = await getCurrentUser()
   await loadDashboard()
 })
 
@@ -79,22 +206,55 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-shell">
+    <section v-if="!currentUser" class="panel dashboard-panel login-panel">
+      <div>
+        <p class="eyebrow">Dashboard Login</p>
+        <h1>Sign in to manage stations and print jobs</h1>
+        <p class="dashboard-copy">Seed admin account: <strong>nguyen</strong> with an empty password.</p>
+      </div>
+
+      <form class="login-form" @submit.prevent="handleLogin">
+        <label>
+          <span>Username</span>
+          <input v-model="loginForm.username" type="text" autocomplete="username" />
+        </label>
+
+        <label>
+          <span>Password</span>
+          <input v-model="loginForm.password" type="password" autocomplete="current-password" />
+        </label>
+
+        <button type="submit" class="refresh-button">Login</button>
+      </form>
+
+      <p v-if="loginError" class="error-copy">{{ loginError }}</p>
+    </section>
+
+    <template v-else>
     <section class="panel dashboard-panel dashboard-hero">
       <div>
         <p class="eyebrow">Operator / Admin</p>
         <h1>Print network dashboard</h1>
         <p class="dashboard-copy">
-          This screen reads station and print-job data from the Worker API so you can monitor the network while we continue building auth and workflows.
+          Signed in as <strong>{{ currentUser.name }}</strong> ({{ currentUser.role }}). The dashboard is now protected by Worker sessions stored in D1.
+        </p>
+        <p v-if="currentUser.role === 'station_operator'" class="dashboard-copy">
+          Station scope: <strong>{{ currentUser.stationName || currentUser.stationSlug }}</strong>. You only see jobs for this station.
         </p>
       </div>
 
-      <button type="button" class="refresh-button" @click="loadDashboard">
-        Refresh now
-      </button>
+      <div class="hero-actions">
+        <button type="button" class="refresh-button" @click="loadDashboard">
+          Refresh now
+        </button>
+        <button type="button" class="logout-button" @click="handleLogout">
+          Logout
+        </button>
+      </div>
     </section>
 
     <section class="dashboard-metrics">
-      <article class="panel metric-card">
+      <article v-if="isAdmin" class="panel metric-card">
         <span>Total stations</span>
         <strong>{{ stations.length }}</strong>
         <small>{{ activeStations }} active</small>
@@ -105,6 +265,29 @@ onMounted(async () => {
         <strong>{{ jobs.length }}</strong>
         <small>{{ pendingJobs }} need attention</small>
       </article>
+    </section>
+
+    <section class="panel dashboard-panel password-panel">
+      <div>
+        <p class="panel-kicker">Security</p>
+        <h2>Change your password</h2>
+      </div>
+
+      <form class="password-form" @submit.prevent="handleChangeOwnPassword">
+        <label>
+          <span>Current password</span>
+          <input v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" />
+        </label>
+
+        <label>
+          <span>New password</span>
+          <input v-model="passwordForm.newPassword" type="password" autocomplete="new-password" />
+        </label>
+
+        <button type="submit" class="refresh-button">Update password</button>
+      </form>
+
+      <p v-if="passwordMessage" class="info-copy">{{ passwordMessage }}</p>
     </section>
 
     <section v-if="error" class="panel dashboard-panel error-panel">
@@ -123,12 +306,22 @@ onMounted(async () => {
           Print jobs
         </button>
         <button
+          v-if="isAdmin"
           type="button"
           class="tab-button"
           :class="{ 'tab-button--active': activeTab === 'stations' }"
           @click="activeTab = 'stations'"
         >
           Stations
+        </button>
+        <button
+          v-if="isAdmin"
+          type="button"
+          class="tab-button"
+          :class="{ 'tab-button--active': activeTab === 'users' }"
+          @click="activeTab = 'users'"
+        >
+          Users
         </button>
       </div>
 
@@ -200,7 +393,7 @@ onMounted(async () => {
         <div v-if="jobs.length === 0" class="empty-copy">No print jobs yet. Submit one from a station page like `/tram1`.</div>
       </div>
 
-      <div v-else class="data-grid">
+      <div v-else-if="activeTab === 'stations'" class="data-grid">
         <article v-for="station in stations" :key="station.id" class="data-card">
           <div class="data-card__top">
             <div>
@@ -221,7 +414,78 @@ onMounted(async () => {
 
         <div v-if="stations.length === 0" class="empty-copy">No stations found in D1 yet.</div>
       </div>
+
+      <div v-else class="users-layout">
+        <form class="user-form" @submit.prevent="handleCreateUser">
+          <h2>Add station user</h2>
+
+          <label>
+            <span>Username</span>
+            <input v-model="createUserForm.username" type="text" required />
+          </label>
+
+          <label>
+            <span>Name</span>
+            <input v-model="createUserForm.name" type="text" required />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input v-model="createUserForm.password" type="text" placeholder="Can be blank" />
+          </label>
+
+          <label>
+            <span>Station</span>
+            <select v-model="createUserForm.stationId" required>
+              <option disabled value="">Select station</option>
+              <option v-for="station in stations" :key="station.id" :value="station.id">
+                {{ station.name }} (/{{ station.slug }})
+              </option>
+            </select>
+          </label>
+
+          <button type="submit" class="refresh-button">Create user</button>
+        </form>
+
+        <div class="data-grid">
+          <article v-for="user in users" :key="user.id" class="data-card">
+            <div class="data-card__top">
+              <div>
+                <strong>{{ user.name }}</strong>
+                <p>{{ user.username }}</p>
+              </div>
+              <span class="status-chip" :class="`status-chip--${user.role === 'super_admin' ? 'active' : 'pending'}`">
+                {{ user.role }}
+              </span>
+            </div>
+
+            <div class="data-card__meta">
+              <span>{{ user.stationName ? `${user.stationName} (/${user.stationSlug})` : 'No station assigned' }}</span>
+              <span>{{ formatDate(user.createdAt) }}</span>
+            </div>
+
+            <button
+              v-if="user.role !== 'super_admin'"
+              type="button"
+              class="action-btn"
+              @click="handleResetUserPassword(user)"
+            >
+              Reset password
+            </button>
+
+            <button
+              v-if="user.role !== 'super_admin'"
+              type="button"
+              class="action-btn"
+              @click="handleDeleteUser(user.id)"
+            >
+              Remove user
+            </button>
+          </article>
+        </div>
+      </div>
     </section>
+    </template>
   </div>
 </template>
 
@@ -236,6 +500,11 @@ onMounted(async () => {
 
 .dashboard-panel {
   padding: 20px;
+}
+
+.login-panel {
+  display: grid;
+  gap: 18px;
 }
 
 .dashboard-hero {
@@ -264,6 +533,44 @@ onMounted(async () => {
   color: white;
   cursor: pointer;
   font-weight: 700;
+}
+
+.logout-button {
+  padding: 0.85rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink-strong);
+  cursor: pointer;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.login-form,
+.user-form,
+.password-form {
+  display: grid;
+  gap: 12px;
+}
+
+.login-form label,
+.user-form label,
+.password-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.login-form input,
+.user-form input,
+.user-form select,
+.password-form input {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .dashboard-metrics {
@@ -385,9 +692,21 @@ onMounted(async () => {
   word-break: break-word;
 }
 
+.users-layout {
+  display: grid;
+  gap: 16px;
+}
+
 .empty-copy,
-.error-panel span {
+.error-panel span,
+.error-copy,
+.info-copy {
   color: var(--ink-soft);
+}
+
+.password-panel {
+  display: grid;
+  gap: 16px;
 }
 
 .error-panel {
@@ -512,6 +831,11 @@ onMounted(async () => {
 
   .data-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .users-layout {
+    grid-template-columns: 320px minmax(0, 1fr);
+    align-items: start;
   }
 }
 </style>
