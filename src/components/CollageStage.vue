@@ -76,10 +76,10 @@ onMounted(() => {
     return
   }
 
-  shellWidth.value = shellRef.value.clientWidth - 16
+  shellWidth.value = shellRef.value.clientWidth - 32
   resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
-      shellWidth.value = entry.contentRect.width - 16
+      shellWidth.value = entry.contentRect.width
     }
   })
   resizeObserver.observe(shellRef.value)
@@ -609,24 +609,14 @@ function getActionButtonConfig(slot: PhotoSlot, index: number) {
 
 <style scoped>
 .stage-shell {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  padding: 10px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 48%),
-    rgba(206, 210, 213, 0.72);
+  position: relative;
+  padding: 16px;
   overflow: hidden;
-  touch-action: pan-x;
+  border: 1px solid var(--line);
+  background: white;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
-@media (min-width: 1100px) {
-  .stage-shell {
-    padding: 16px;
-    border-radius: 28px;
-  }
-}
 
 @media (pointer: fine) {
   .stage-shell--interactive {

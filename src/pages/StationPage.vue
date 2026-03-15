@@ -751,8 +751,7 @@ async function handleExportPdf() {
             class="template-preview-card"
           >
             <div class="template-preview-card__header">
-              <strong>Page {{ page.index + 1 }}</strong>
-              <span>{{ page.photoCount }} photo{{ page.photoCount === 1 ? '' : 's' }}</span>
+              PAGE {{ page.index + 1 }}
             </div>
 
             <CollageStage
@@ -1167,17 +1166,11 @@ async function handleExportPdf() {
 }
 
 .template-preview-card__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--ink-soft);
-  font-size: 0.88rem;
-}
-
-.template-preview-card__header strong {
-  color: var(--ink-strong);
-  font-size: 0.94rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .selector-card--template {
