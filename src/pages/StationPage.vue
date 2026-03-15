@@ -663,33 +663,7 @@ async function handleExportPdf() {
       @change="handleBulkFileInput"
     />
 
-    <section class="panel photo-strip">
-      <div class="photo-strip__scroller">
-        <button type="button" class="photo-tile photo-tile--add" @click="openBulkFilePicker">
-          <span class="photo-tile__plus">+</span>
-          <span class="photo-tile__label">Thêm ảnh</span>
-        </button>
 
-        <article
-          v-for="photo in orderedPhotos"
-          :key="photo.id"
-          class="photo-tile"
-          :class="{ 'photo-tile--active': selectedGridPhotoId === photo.id && editorMode === 'grid' }"
-          @click="store.selectGridPhoto(photo.id)"
-        >
-          <img :src="photo.src" :alt="photo.name" class="photo-tile__image" />
-          <button
-            type="button"
-            class="photo-tile__remove"
-            aria-label="Xóa ảnh"
-            @click.stop="store.removePhoto(photo.id)"
-          >
-            ×
-          </button>
-          <span class="photo-tile__name">{{ photo.name }}</span>
-        </article>
-      </div>
-    </section>
 
     <header class="hero-panel panel">
       <div>
@@ -716,10 +690,39 @@ async function handleExportPdf() {
     <main class="workspace-grid">
       <section class="panel preview-panel panel--preview">
         <div class="panel-heading">
-          <div>
+          <div class="panel-title-group">
             <p class="panel-kicker">{{ editorMode === 'template' ? 'Template preview' : 'Grid preview' }}</p>
             <h2>{{ editorMode === 'template' ? template.name : hasPhotos ? `${selectedPrintSize.label} print sheet` : 'Start with photo upload' }}</h2>
           </div>
+
+          <div class="photo-strip-inline">
+            <div class="photo-strip__scroller">
+              <button type="button" class="photo-tile photo-tile--add" @click="openBulkFilePicker">
+                <span class="photo-tile__plus">+</span>
+                <span class="photo-tile__label">Thêm ảnh</span>
+              </button>
+
+              <article
+                v-for="photo in orderedPhotos"
+                :key="photo.id"
+                class="photo-tile"
+                :class="{ 'photo-tile--active': selectedGridPhotoId === photo.id && editorMode === 'grid' }"
+                @click="store.selectGridPhoto(photo.id)"
+              >
+                <img :src="photo.src" :alt="photo.name" class="photo-tile__image" />
+                <button
+                  type="button"
+                  class="photo-tile__remove"
+                  aria-label="Xóa ảnh"
+                  @click.stop="store.removePhoto(photo.id)"
+                >
+                  ×
+                </button>
+                <span class="photo-tile__name">{{ photo.name }}</span>
+              </article>
+            </div>
+          </div>
+
           <div class="preview-panel__actions">
             <p class="panel-note">
               {{
@@ -729,14 +732,6 @@ async function handleExportPdf() {
               }}
             </p>
             <div class="preview-panel__buttons">
-              <button
-                v-if="editorMode === 'grid'"
-                type="button"
-                class="ghost-button"
-                @click="openBulkFilePicker"
-              >
-                Add photos
-              </button>
               <button
                 type="button"
                 class="export-button"
@@ -888,22 +883,25 @@ async function handleExportPdf() {
 </template>
 
 <style scoped>
-.photo-strip {
-  padding: 10px;
-  margin-bottom: 10px;
+.photo-strip-inline {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
+}
+
+.panel-title-group {
+  flex: 0 0 auto;
 }
 
 .photo-strip__scroller,
 .layout-chooser {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
+  display: flex;
   gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 4px;
-  scrollbar-width: none;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
 }
 
 .photo-strip__scroller::-webkit-scrollbar,
@@ -913,8 +911,10 @@ async function handleExportPdf() {
 
 .photo-tile {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
   width: 84px;
   min-width: 84px;
   gap: 6px;
