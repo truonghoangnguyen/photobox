@@ -194,6 +194,7 @@ a {
 
 .panel--preview {
   grid-area: preview;
+  min-width: 0;
 }
 
 .panel--toolbar {
@@ -238,10 +239,11 @@ a {
   }
 
   .workspace-grid {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: 1fr;
     grid-template-areas:
-      'templates preview'
-      'toolbar preview';
+      'preview'
+      'templates'
+      'toolbar';
     gap: 20px;
     align-items: start;
   }

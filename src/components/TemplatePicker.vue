@@ -95,19 +95,33 @@ function getSlotStyle(template: TemplateDefinition, slot: TemplateDefinition['sl
 .template-list {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(272px, 86vw);
+  grid-auto-columns: minmax(140px, 160px);
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 4px;
+  padding: 4px 4px 12px;
   scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.template-list::-webkit-scrollbar {
+  height: 6px;
+}
+
+.template-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.template-list::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 10px;
 }
 
 .template-card {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 14px;
+  padding: 10px;
   text-align: left;
   border: 1px solid var(--line);
   /* border-radius: 22px; */
@@ -150,9 +164,8 @@ function getSlotStyle(template: TemplateDefinition, slot: TemplateDefinition['sl
 }
 
 .template-card__copy {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 4px;
   align-items: start;
 }
 
@@ -170,20 +183,15 @@ function getSlotStyle(template: TemplateDefinition, slot: TemplateDefinition['sl
 }
 
 .template-card span {
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 760px) {
   .template-list {
-    grid-auto-flow: row;
-    grid-auto-columns: initial;
-    max-height: 720px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-right: 4px;
-    padding-bottom: 0;
+    grid-auto-columns: 160px;
+    gap: 14px;
   }
 }
 </style>

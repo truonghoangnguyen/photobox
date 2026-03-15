@@ -994,7 +994,7 @@ async function handleExportPdf() {
   box-shadow: 0 12px 24px rgba(167, 100, 40, 0.12);
 }
 
-.grid-workspace {
+.workspace-grid {
   display: grid;
   gap: 14px;
 }
@@ -1156,6 +1156,7 @@ async function handleExportPdf() {
   align-items: start;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .template-preview-card {
@@ -1275,8 +1276,8 @@ async function handleExportPdf() {
     display: none;
   }
 
-  .grid-workspace {
-    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  .workspace-grid {
+    grid-template-columns: 1fr;
     gap: 18px;
     align-items: start;
   }
@@ -1318,6 +1319,7 @@ async function handleExportPdf() {
   .preview-panel,
   .panel--grid-preview {
     padding: 14px;
+    min-width: 0;
   }
 
   .panel-heading {
