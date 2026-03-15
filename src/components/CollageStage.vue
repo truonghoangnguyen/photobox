@@ -562,7 +562,7 @@ function getActionButtonConfig(slot: PhotoSlot, index: number) {
                 y: getActionButtonConfig(slot, 0).y + 10,
                 width: getActionButtonConfig(slot, 0).width,
                 align: 'center',
-                text: 'XOAY PHAI',
+                text: 'Xoay phải',
                 fontSize: 18,
                 fontStyle: '700',
                 fill: 'white',
