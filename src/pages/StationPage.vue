@@ -770,12 +770,22 @@ async function handleExportPdf() {
             />
           </article>
         </div>
-        <div v-else-if="!hasPhotos" class="grid-empty-state">
-          <strong>Empty canvas, ready for upload</strong>
-          <p>Choose one or many photos to generate the first grid automatically.</p>
-          <button type="button" class="export-button grid-empty-state__button" @click="openBulkFilePicker">
-            Upload photos
-          </button>
+        <div v-else-if="!hasPhotos" class="template-preview-pages">
+          <article class="template-preview-card">
+            <div class="template-preview-card__header">
+              PAGE 1
+            </div>
+
+            <CollageStage
+              :template="COLLAGE_TEMPLATES[0]"
+              :photos="{}"
+              :bindings="{}"
+              :selected-slot-id="null"
+              :unlocked-slot-id="null"
+              :interactive="true"
+              @add-photo="openBulkFilePicker"
+            />
+          </article>
         </div>
 
         <GridPreview
