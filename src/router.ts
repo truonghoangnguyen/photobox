@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import DashboardPage from './pages/DashboardPage.vue'
 import HomePage from './pages/HomePage.vue'
 import StationPage from './pages/StationPage.vue'
+import InvoicePage from './pages/InvoicePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,6 +22,11 @@ const router = createRouter({
       name: 'station',
       component: StationPage,
       props: true,
+    },
+    {
+      path: '/invoice',
+      name: 'invoice',
+      component: InvoicePage,
     },
   ],
 })

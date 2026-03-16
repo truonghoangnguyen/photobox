@@ -101,3 +101,21 @@ export function drawEditableImage(
   )
   context.restore()
 }
+
+export async function addRecipientTextToPdf(pdfBlob: Blob, text: string): Promise<Blob> {
+  const bytes = await pdfBlob.arrayBuffer()
+  const pdfDoc = await PDFDocument.load(bytes)
+  const pages = pdfDoc.getPages()
+  
+  for (const page of pages) {
+    // Draw text at bottom left
+    page.drawText(text, {
+      x: 20,
+      y: 20,
+      size: 10,
+    })
+  }
+
+  const pdfBytes = await pdfDoc.save()
+  return new Blob([pdfBytes as any], { type: 'application/pdf' })
+}

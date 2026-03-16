@@ -108,6 +108,9 @@ export async function createPrintJob(payload: CreatePrintJobRequest, pdfBlob: Bl
   formData.append('templateId', payload.templateId)
   formData.append('slotCount', String(payload.slotCount))
   formData.append('totalAmount', String(payload.totalAmount ?? 0))
+  if (payload.status) formData.append('status', payload.status)
+  if (payload.pageCount) formData.append('pageCount', String(payload.pageCount))
+  if (payload.pricePerPage) formData.append('pricePerPage', String(payload.pricePerPage))
   formData.append(
     'file',
     new File([pdfBlob], `print-${payload.stationSlug}.pdf`, { type: 'application/pdf' }),

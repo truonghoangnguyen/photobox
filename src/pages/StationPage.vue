@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import CollageStage from '../components/CollageStage.vue'
 import GridPreview from '../components/GridPreview.vue'
 import TemplatePicker from '../components/TemplatePicker.vue'
-import { createPrintJob, resolveStationBySlug } from '../lib/api'
+import { resolveStationBySlug } from '../lib/api'
 import { renderCollagePdfBlob } from '../lib/export/pdf'
 import { renderGridPdfBlob } from '../lib/export/gridPdf'
 import { clampBinding } from '../modules/collage/layout'
@@ -21,6 +21,7 @@ import type { StationSummary } from '../../shared/contracts'
 type EditorMode = 'template' | 'grid'
 
 const route = useRoute()
+const router = useRouter()
 const store = useCollageStore()
 const {
   selectedTemplateId,
@@ -622,21 +623,22 @@ async function handleExportPdf() {
             exportScale: store.exportSettings.scale,
           })
 
-    const response = await createPrintJob(
-      {
-        stationSlug: stationSlug.value,
-        templateId:
-          editorMode.value === 'grid'
-            ? `auto-grid-${selectedPrintSize.value.id}`
-            : selectedTemplateId.value,
-        slotCount:
-          editorMode.value === 'grid' ? orderedPhotos.value.length : template.value.slots.length,
-        totalAmount: 0,
-      },
-      pdfBlob,
-    )
+    const pageCount =
+      editorMode.value === 'grid' ? gridLayout.value.pageCount : templatePreviewPages.value.length
 
-    lastJobCode.value = response.job.jobCode
+    store.setPendingPrint({
+      blob: pdfBlob,
+      pageCount,
+      templateId:
+        editorMode.value === 'grid'
+          ? `auto-grid-${selectedPrintSize.value.id}`
+          : selectedTemplateId.value,
+      slotCount:
+        editorMode.value === 'grid' ? orderedPhotos.value.length : template.value.slots.length,
+      stationSlug: stationSlug.value,
+    })
+
+    router.push('/invoice')
   } catch (error) {
     exportError.value = error instanceof Error ? error.message : 'Failed to generate the PDF.'
   } finally {

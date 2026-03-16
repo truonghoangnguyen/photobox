@@ -43,6 +43,9 @@ publicRoutes.post('/print-jobs', async (context) => {
   const templateId = formData.get('templateId')
   const slotCountRaw = formData.get('slotCount')
   const totalAmountRaw = formData.get('totalAmount')
+  const status = formData.get('status')
+  const pageCountRaw = formData.get('pageCount')
+  const pricePerPageRaw = formData.get('pricePerPage')
   const file = formData.get('file')
 
   if (
@@ -56,6 +59,8 @@ publicRoutes.post('/print-jobs', async (context) => {
 
   const slotCount = Number(slotCountRaw)
   const totalAmount = Number(totalAmountRaw ?? 0)
+  const pageCount = pageCountRaw ? Number(pageCountRaw) : null
+  const pricePerPage = pricePerPageRaw ? Number(pricePerPageRaw) : null
 
   if (!Number.isFinite(slotCount) || slotCount <= 0) {
     return context.json<ApiErrorResponse>({ error: 'slotCount must be a positive number.' }, 400)
@@ -97,12 +102,25 @@ publicRoutes.post('/print-jobs', async (context) => {
         total_amount,
         output_r2_key,
         template_id,
-        slot_count
+        slot_count,
+        page_count,
+        price_per_page
       )
-      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
   )
-    .bind(jobId, stationRow.id, jobCode, totalAmount, r2Key, templateId, slotCount)
+    .bind(
+      jobId,
+      stationRow.id,
+      jobCode,
+      typeof status === 'string' ? status : 'pending',
+      totalAmount,
+      r2Key,
+      templateId,
+      slotCount,
+      pageCount,
+      pricePerPage,
+    )
     .run()
 
   await context.env.DB.prepare(
@@ -126,11 +144,13 @@ publicRoutes.post('/print-jobs', async (context) => {
     stationId: stationRow.id,
     stationSlug: stationSlug,
     jobCode,
-    status: 'pending',
+    status: (typeof status === 'string' ? status : 'pending') as any,
     totalAmount,
     outputR2Key: r2Key,
     templateId,
     slotCount,
+    pageCount: pageCount ?? undefined,
+    pricePerPage: pricePerPage ?? undefined,
     createdAt: new Date().toISOString(),
   }
 

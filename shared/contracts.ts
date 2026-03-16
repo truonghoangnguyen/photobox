@@ -36,6 +36,8 @@ export interface PrintJobSummary {
   outputR2Key?: string
   templateId?: string
   slotCount?: number
+  pageCount?: number
+  pricePerPage?: number
   createdAt: string
 }
 
@@ -72,6 +74,9 @@ export interface CreatePrintJobRequest {
   templateId: string
   slotCount: number
   totalAmount?: number
+  status?: PrintJobStatus
+  pageCount?: number
+  pricePerPage?: number
 }
 
 export interface CreatePrintJobResponse {

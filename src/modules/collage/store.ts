@@ -57,6 +57,14 @@ export const useCollageStore = defineStore('collage', () => {
     scale: 2,
   })
 
+  const pendingPrint = ref<{
+    blob: Blob
+    pageCount: number
+    templateId: string
+    slotCount: number
+    stationSlug: string
+  } | null>(null)
+
   const template = computed(
     () => getTemplateById(selectedTemplateId.value) ?? DEFAULT_TEMPLATE,
   )
@@ -265,6 +273,14 @@ export const useCollageStore = defineStore('collage', () => {
     })
   }
 
+  function setPendingPrint(data: typeof pendingPrint.value) {
+    pendingPrint.value = data
+  }
+
+  function clearPendingPrint() {
+    pendingPrint.value = null
+  }
+
   return {
     selectedTemplateId,
     selectedSlotId,
@@ -293,5 +309,8 @@ export const useCollageStore = defineStore('collage', () => {
     clearSlot,
     removePhoto,
     clearAllPhotos,
+    pendingPrint,
+    setPendingPrint,
+    clearPendingPrint,
   }
 })

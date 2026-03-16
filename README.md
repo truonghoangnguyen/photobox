@@ -185,3 +185,14 @@ Not finished yet:
 - real print job creation flow
 - operator dashboard
 - admin dashboard
+
+
+git switch main
+git pull origin main
+
+git switch -c feature-a
+git add .
+git commit -m "add feature"
+
+git switch main
+git merge feature-a
