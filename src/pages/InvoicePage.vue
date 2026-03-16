@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useCollageStore } from '../modules/collage/store'
 import { createPrintJob } from '../lib/api'
-import { addRecipientTextToPdf } from '../lib/export/shared'
+import { addRecipientTextToPdf, removeVietnameseTones } from '../lib/export/shared'
 
 const router = useRouter()
 const store = useCollageStore()
@@ -21,7 +21,8 @@ const customerCode = ref(Math.floor(1000 + Math.random() * 9000).toString())
 
 const recipientText = computed(() => {
   if (!customerName.value && !customerCode.value) return ''
-  return `${customerName.value} ${customerCode.value}`.trim()
+  const rawText = `${customerName.value} ${customerCode.value}`.trim()
+  return removeVietnameseTones(rawText)
 })
 
 const totalAmount = computed(() => {
@@ -81,6 +82,9 @@ const handlePayment = async () => {
         status: 'draft',
         pageCount: pendingPrint.value.pageCount,
         pricePerPage: pricePerPage,
+        customerName: customerName.value,
+        customerPhoneSuffix: customerCode.value,
+        quantity: quantity.value,
       },
       finalBlob
     )
@@ -92,9 +96,28 @@ const handlePayment = async () => {
       totalAmount: totalAmount.value,
       pageCount: pendingPrint.value.pageCount,
       quantity: quantity.value,
+      stationSlug: pendingPrint.value.stationSlug,
+      templateId: pendingPrint.value.templateId,
       timestamp: new Date().toISOString(),
     }
-    localStorage.setItem('photobox_last_invoice', JSON.stringify(invoiceInfo))
+    
+    // Multi-order support: migrate if needed and push
+    const existingRaw = localStorage.getItem('photobox_invoices')
+    const invoices = existingRaw ? JSON.parse(existingRaw) : []
+    
+    // Also check the old single-order key for migration
+    const oldKey = localStorage.getItem('photobox_last_invoice')
+    if (oldKey && invoices.length === 0) {
+      try {
+        const oldInfo = JSON.parse(oldKey)
+        if (oldInfo.jobId) invoices.push(oldInfo)
+        localStorage.removeItem('photobox_last_invoice')
+      } catch (e) {}
+    }
+    
+    invoices.push(invoiceInfo)
+    localStorage.setItem('photobox_invoices', JSON.stringify(invoices))
+    localStorage.setItem('photobox_last_invoice', JSON.stringify(invoiceInfo)) // Keep for backward compatibility/widget
 
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo hóa đơn.'
@@ -105,8 +128,8 @@ const handlePayment = async () => {
 
 const closePaymentModal = () => {
   showPaymentModal.value = false
-  // Optional: redirect or stay on page
-  // router.push('/')
+  const slug = pendingPrint.value?.stationSlug || 'tram1'
+  router.push(`/${slug}`)
 }
 
 const formatCurrency = (value: number) => {

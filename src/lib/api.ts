@@ -9,6 +9,7 @@ import type {
   LoginResponse,
   ManagedUser,
   PrintJobListResponse,
+  PrintJobSummary,
   ResetPasswordRequest,
   SessionResponse,
   StationListResponse,
@@ -111,6 +112,9 @@ export async function createPrintJob(payload: CreatePrintJobRequest, pdfBlob: Bl
   if (payload.status) formData.append('status', payload.status)
   if (payload.pageCount) formData.append('pageCount', String(payload.pageCount))
   if (payload.pricePerPage) formData.append('pricePerPage', String(payload.pricePerPage))
+  if (payload.customerName) formData.append('customerName', payload.customerName)
+  if (payload.customerPhoneSuffix) formData.append('customerPhoneSuffix', payload.customerPhoneSuffix)
+  if (payload.quantity) formData.append('quantity', String(payload.quantity))
   formData.append(
     'file',
     new File([pdfBlob], `print-${payload.stationSlug}.pdf`, { type: 'application/pdf' }),
@@ -133,6 +137,28 @@ export async function createPrintJob(payload: CreatePrintJobRequest, pdfBlob: Bl
   }
 
   return (await response.json()) as CreatePrintJobResponse
+}
+
+export async function getPublicPrintJob(id: string): Promise<{ job: PrintJobSummary }> {
+  const response = await fetch(`${API_BASE_URL}/api/public/print-jobs/${id}`)
+
+  if (!response.ok) {
+    throw new Error(`Unable to load print job ${id}.`)
+  }
+
+  return (await response.json()) as { job: PrintJobSummary }
+}
+
+export async function cancelPublicPrintJob(id: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/public/print-jobs/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Unable to cancel print job ${id}.`)
+  }
+
+  return (await response.json()) as { success: boolean }
 }
 
 export async function listStations() {
@@ -263,4 +289,10 @@ export async function changeOwnPassword(payload: ChangePasswordRequest) {
   return await response.json()
 }
 
-export type { AuthUser, ManagedUser }
+export type {
+  AuthUser,
+  ManagedUser,
+  PrintJobListResponse,
+  StationListResponse,
+  UserListResponse,
+}

@@ -28,6 +28,10 @@ operatorRoutes.get('/print-jobs', async (context) => {
         pj.output_r2_key AS outputR2Key,
         pj.template_id AS templateId,
         pj.slot_count AS slotCount,
+        pj.page_count AS pageCount,
+        pj.customer_name AS customerName,
+        pj.customer_phone_suffix AS customerPhoneSuffix,
+        pj.quantity,
         pj.created_at AS createdAt
       FROM print_jobs pj
       JOIN stations s ON s.id = pj.station_id

@@ -38,6 +38,9 @@ export interface PrintJobSummary {
   slotCount?: number
   pageCount?: number
   pricePerPage?: number
+  customerName?: string
+  customerPhoneSuffix?: string
+  quantity: number
   createdAt: string
 }
 
@@ -77,6 +80,9 @@ export interface CreatePrintJobRequest {
   status?: PrintJobStatus
   pageCount?: number
   pricePerPage?: number
+  customerName?: string
+  customerPhoneSuffix?: string
+  quantity?: number
 }
 
 export interface CreatePrintJobResponse {

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import CollageStage from '../components/CollageStage.vue'
 import GridPreview from '../components/GridPreview.vue'
 import TemplatePicker from '../components/TemplatePicker.vue'
-import { resolveStationBySlug } from '../lib/api'
+import { resolveStationBySlug, getPublicPrintJob } from '../lib/api'
 import { renderCollagePdfBlob } from '../lib/export/pdf'
 import { renderGridPdfBlob } from '../lib/export/gridPdf'
 import { clampBinding } from '../modules/collage/layout'
@@ -16,7 +16,7 @@ import type { PhotoSlot, TemplateDefinition } from '../modules/collage/types'
 import { buildAutoGridLayout } from '../modules/grid/layout'
 import { DEFAULT_PRINT_SIZE, getPrintSizeById, PRINT_SIZE_OPTIONS } from '../modules/grid/printSizes'
 import { clampTransform, createDefaultTransform } from '../modules/print-core/transform'
-import type { StationSummary } from '../../shared/contracts'
+import type { StationSummary, PrintJobSummary } from '../../shared/contracts'
 
 type EditorMode = 'template' | 'grid'
 
@@ -48,6 +48,7 @@ const stationError = ref<string | null>(null)
 const lastJobCode = ref<string | null>(null)
 const unlockedSlotId = ref<string | null>(null)
 const unlockedGridPhotoId = ref<string | null>(null)
+const activeOrder = ref<PrintJobSummary | null>(null)
 
 const stationSlug = computed(() => {
   const raw = route.params.stationSlug
@@ -176,6 +177,38 @@ watch(
   },
   { immediate: true },
 )
+
+onMounted(async () => {
+  const existingRaw = localStorage.getItem('photobox_invoices')
+  if (existingRaw) {
+    try {
+      let invoices = JSON.parse(existingRaw)
+      let needsUpdate = false
+      const validInvoices = []
+
+      for (const info of invoices) {
+        if (info.jobId) {
+          try {
+            const response = await getPublicPrintJob(info.jobId)
+            if (response.job.status === 'draft' || response.job.status === 'pending') {
+              activeOrder.value = response.job
+            }
+            validInvoices.push(info)
+          } catch (err) {
+            console.error(`Failed to load order ${info.jobId}, removing from local storage:`, err)
+            needsUpdate = true
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        localStorage.setItem('photobox_invoices', JSON.stringify(validInvoices))
+      }
+    } catch (err) {
+      console.error('Failed to parse invoices:', err)
+    }
+  }
+})
 
 watch(editorMode, () => {
   exportError.value = null
@@ -668,12 +701,19 @@ async function handleExportPdf() {
 
 
     <header class="hero-panel panel">
-      <div>
+      <div class="hero-panel__top">
         <p class="eyebrow">Station Route: /{{ stationSlug }}</p>
-        <h1>Photo print station with instant grid-first upload flow</h1>
-        <p class="hero-copy">
-          Customers start from an empty screen, upload one or many photos, see them arranged as a grid by default, then switch to a print size or a collage template below.
-        </p>
+
+        <img src="/nhanh.png" alt="Nhanh" class="hero-logo" />
+
+        <div v-if="activeOrder" class="active-order-widget" @click="router.push('/cart')">
+          <div class="active-order-widget__icon">📄</div>
+          <div class="active-order-widget__content">
+            <p class="active-order-widget__title">Đơn hàng đang xử lý</p>
+            <p class="active-order-widget__code">{{ activeOrder.jobCode }} · {{ activeOrder.status }}</p>
+          </div>
+          <div class="active-order-widget__arrow">→</div>
+        </div>
       </div>
 
       <div class="hero-meta">
@@ -1214,6 +1254,89 @@ async function handleExportPdf() {
 
 .button-row--stack {
   grid-template-columns: 1fr;
+}
+
+.active-order-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--line-strong);
+  animation: slideInUp 0.4s ease-out;
+}
+
+.hero-panel__top {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100px;
+  top: 0;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.active-order-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.active-order-widget__icon {
+  font-size: 24px;
+}
+
+.active-order-widget__title {
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.active-order-widget__code {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 2px 0 0;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.active-order-widget__arrow {
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+@media (max-width: 760px) {
+  .active-order-widget {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .hero-panel__top {
+    flex-direction: column;
+  }
 }
 
 .zoom-range {

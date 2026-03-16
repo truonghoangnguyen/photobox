@@ -16,6 +16,9 @@ import {
   updatePrintJobStatus,
   type AuthUser,
   type ManagedUser,
+  type PrintJobListResponse,
+  type StationListResponse,
+  type UserListResponse,
 } from '../lib/api'
 import type { PrintJobSummary, StationSummary } from '../../shared/contracts'
 
@@ -58,10 +61,34 @@ function formatMoney(value: number) {
 }
 
 function formatDate(value: string) {
+  // SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS' in UTC
+  // We append ' UTC' to ensure JS parses it as UTC
+  const dateStr = value.includes(' ') && !value.includes('Z') && !value.includes('+') ? `${value} UTC` : value
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'short',
     timeStyle: 'short',
-  }).format(new Date(value))
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(new Date(dateStr))
+}
+
+function formatRelativeTime(value: string) {
+  const dateStr = value.includes(' ') && !value.includes('Z') && !value.includes('+') ? `${value} UTC` : value
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffInSeconds < 60) return 'Vừa xong'
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) return `${diffInMinutes} phút trước`
+  
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) return `${diffInHours} giờ trước`
+  
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays < 7) return `${diffInDays} ngày trước`
+  
+  return formatDate(value)
 }
 
 async function loadDashboard() {
@@ -72,11 +99,11 @@ async function loadDashboard() {
 
   try {
     error.value = null
-    const requests = [listPrintJobs()]
-
-    if (isAdmin.value) {
-      requests.push(listStations(), listUsers())
-    }
+    const requests: [Promise<PrintJobListResponse>, Promise<StationListResponse | undefined>, Promise<UserListResponse | undefined>] = [
+      listPrintJobs(),
+      isAdmin.value ? listStations() : Promise.resolve(undefined),
+      isAdmin.value ? listUsers() : Promise.resolve(undefined),
+    ]
 
     const [jobsResponse, stationsResponse, usersResponse] = await Promise.all(requests)
     jobs.value = jobsResponse.jobs
@@ -127,6 +154,15 @@ async function resetJob(job: PrintJobSummary) {
     job.status = 'pending'
   } catch (err) {
     alert(err instanceof Error ? err.message : 'Failed to reset job')
+  }
+}
+
+async function payJob(job: PrintJobSummary) {
+  try {
+    await updatePrintJobStatus(job.id, 'pending')
+    job.status = 'pending'
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to process payment')
   }
 }
 
@@ -330,11 +366,13 @@ onMounted(async () => {
       <div v-else-if="activeTab === 'jobs'" class="list-container">
         <div class="list-header">
           <div class="col-job">Job & Station</div>
-          <div class="col-details">Details</div>
-          <div class="col-amount">Amount</div>
-          <div class="col-status">Status</div>
-          <div class="col-date">Date</div>
-          <div class="col-actions">Actions</div>
+          <div class="col-customer">Khách hàng</div>
+          <div class="col-pages">Số tờ</div>
+          <div class="col-quantity">Số lượng</div>
+          <div class="col-amount">Số tiền</div>
+          <div class="col-date">Ngày</div>
+          <div class="col-status">Trạng thái</div>
+          <div class="col-actions">Hành động</div>
         </div>
 
         <div class="list-body">
@@ -344,21 +382,27 @@ onMounted(async () => {
               <p>{{ job.stationSlug }}</p>
             </div>
 
-            <div class="col-details">
-              <span>Tpl: {{ job.templateId ?? 'n/a' }}</span>
-              <span>Slots: {{ job.slotCount ?? 0 }}</span>
+            <div class="col-customer">
+              <strong>{{ job.customerName || 'N/A' }}</strong>
+              <p v-if="job.customerPhoneSuffix">*{{ job.customerPhoneSuffix }}</p>
             </div>
 
+            <div class="col-pages">
+              {{ job.pageCount ?? 0 }}
+            </div>
+            <div class="col-quantity">
+              {{ job.quantity }}
+            </div>
             <div class="col-amount">
               {{ formatMoney(job.totalAmount) }}
             </div>
 
-            <div class="col-status">
-              <span class="status-chip" :class="`status-chip--${job.status}`">{{ job.status }}</span>
+            <div class="col-date">
+              <span class="relative-time">{{ formatRelativeTime(job.createdAt) }}</span>
             </div>
 
-            <div class="col-date">
-              {{ formatDate(job.createdAt) }}
+            <div class="col-status">
+              <span class="status-chip" :class="`status-chip--${job.status}`">{{ job.status }}</span>
             </div>
 
             <div class="col-actions">
@@ -369,6 +413,14 @@ onMounted(async () => {
                 @click="resetJob(job)"
               >
                 Reset
+              </button>
+              <button
+                v-if="job.status === 'draft'"
+                type="button"
+                class="action-btn btn-pay"
+                @click="payJob(job)"
+              >
+                Thanh toán
               </button>
               <button
                 type="button"
@@ -723,25 +775,25 @@ onMounted(async () => {
 
 .list-header {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1.5fr 0.7fr 0.7fr 1fr 1.2fr 1fr 1.8fr;
   gap: 16px;
   padding: 12px 16px;
   font-weight: 600;
   color: var(--ink-soft);
   border-bottom: 2px solid var(--line);
-  min-width: 800px;
+  min-width: 900px;
 }
 
 .list-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 800px;
+  min-width: 900px;
 }
 
 .list-row {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1.5fr 0.7fr 0.7fr 1fr 1.2fr 1fr 1.8fr;
   gap: 16px;
   align-items: center;
   padding: 12px 16px;
@@ -765,12 +817,37 @@ onMounted(async () => {
   font-size: 0.9rem;
 }
 
-.col-details {
+.col-customer strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.col-customer p {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.col-date .relative-time {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.col-pages,
+.col-quantity {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.col-status {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.row-date {
+  font-size: 0.75rem;
   color: var(--ink-soft);
-  font-size: 0.9rem;
 }
 
 .col-actions {
@@ -810,6 +887,15 @@ onMounted(async () => {
 
 .btn-reset:hover:not(:disabled) {
   background: var(--ink-strong);
+}
+
+.btn-pay {
+  background: #2f7e54;
+  color: white;
+}
+
+.btn-pay:hover:not(:disabled) {
+  background: #235e3f;
 }
 
 .action-btn:disabled {
