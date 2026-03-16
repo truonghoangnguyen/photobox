@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { verifyPassword } from '../auth'
+
 import type {
   ChangePasswordRequest,
   LoginRequest,
@@ -27,11 +29,21 @@ authRoutes.post('/login', async (context) => {
     return context.json({ error: 'Invalid username or password.' }, 401)
   }
 
-  const passwordHash = await hashPassword(body.password ?? '')
+  // const passwordHash = await hashPassword(body.password ?? '')
 
-  if ((user.passwordHash ?? '') !== passwordHash) {
+  // if ((user.passwordHash ?? '') !== passwordHash) {
+  //   return context.json({ error: 'Invalid username or password.' }, 401)
+  // }
+
+  const ok = await verifyPassword(
+    body.password ?? '',
+    user.passwordHash ?? ''
+  )
+
+  if (!ok) {
     return context.json({ error: 'Invalid username or password.' }, 401)
   }
+
 
   const token = await createSession(context, user.id)
   const authResult = await requireAuth({

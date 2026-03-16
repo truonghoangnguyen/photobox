@@ -2,17 +2,114 @@ import type { AuthUser, ManagedUser } from '../../shared/contracts'
 import type { AppContext, ManagedUserRow, SessionUserRow } from './types'
 import { toAuthUser } from './types'
 
-async function sha256(value: string) {
-  const bytes = new TextEncoder().encode(value)
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(digest))
-    .map((part) => part.toString(16).padStart(2, '0'))
+// hashPassword.ts
+const ITERATIONS = 200_000
+const KEY_LEN = 32 // 256-bit
+
+function toHex(buf: Uint8Array) {
+  return Array.from(buf)
+    .map(b => b.toString(16).padStart(2, '0'))
     .join('')
 }
 
-export async function hashPassword(password: string) {
-  return await sha256(password)
+function fromHex(hex: string) {
+  const arr = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return arr
 }
+
+/**
+ * Dùng khi tạo / reset password
+ * Trả về string để lưu DB
+ */
+export async function hashPassword(password: string) {
+  const enc = new TextEncoder()
+
+  // salt ngẫu nhiên cho mỗi user
+  const salt = new Uint8Array(16)
+  crypto.getRandomValues(salt)
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: ITERATIONS,
+      hash: 'SHA-256',
+    },
+    key,
+    KEY_LEN * 8
+  )
+
+  // lưu dạng: pbkdf2$iterations$salt$hash
+  return `pbkdf2$${ITERATIONS}$${toHex(salt)}$${toHex(new Uint8Array(bits))}`
+}
+
+/**
+ * Dùng khi login
+ */
+export async function verifyPassword(
+  password: string,
+  storedHash: string
+) {
+  // fallback cho dữ liệu cũ (SHA-256)
+  if (!storedHash.startsWith('pbkdf2$')) {
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(password)
+    )
+    const hex = toHex(new Uint8Array(digest))
+    return hex === storedHash
+  }
+
+  const enc = new TextEncoder()
+  const [, iter, saltHex, hashHex] = storedHash.split('$')
+
+  const salt = fromHex(saltHex)
+  const iterations = Number(iter)
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations,
+      hash: 'SHA-256',
+    },
+    key,
+    hashHex.length * 4
+  )
+
+  return toHex(new Uint8Array(bits)) === hashHex
+}
+
+// async function sha256(value: string) {
+//   const bytes = new TextEncoder().encode(value)
+//   const digest = await crypto.subtle.digest('SHA-256', bytes)
+//   return Array.from(new Uint8Array(digest))
+//     .map((part) => part.toString(16).padStart(2, '0'))
+//     .join('')
+// }
+
+// export async function hashPassword(password: string) {
+//   return await sha256(password)
+// }
 
 function getBearerToken(context: Parameters<typeof requireAuth>[0]) {
   const header = context.req.header('Authorization')
