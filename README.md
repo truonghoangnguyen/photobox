@@ -1,4 +1,5 @@
 # Photobox
+Users scan a QR code at a physical kiosk, link to webapp, from webapp, select photos from their phone gallery, arrange them into a layout using a drag-and-drop tool, and receive a printed A4 page within seconds. The service supports single photos, collages, photo strips, and ID or mini-size prints. No app download or waiting in line is required.
 
 Web-to-print photo collage app with:
 - `Cloudflare Pages` for frontend

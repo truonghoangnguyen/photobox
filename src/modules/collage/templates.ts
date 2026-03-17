@@ -112,6 +112,25 @@ export const COLLAGE_TEMPLATES: TemplateDefinition[] = [
       { id: 'slot-4', x: 824, y: 820, width: 344, height: 862, placeholder: 'Right detail photo' },
     ],
   },
+  {
+    id: 'grid-nine-classic',
+    name: 'Grid Nine (6x9)',
+    description: 'Classic 3x3 grid with 6x9cm frames, perfectly spaced for A4.',
+    accent: '#5d8da8',
+    background: '#f0f4f7',
+    pageSize: A4_PAGE,
+    slots: [
+      { id: 'slot-1', x: 44, y: 40, width: 354, height: 531, placeholder: 'Photo 1' },
+      { id: 'slot-2', x: 442, y: 40, width: 354, height: 531, placeholder: 'Photo 2' },
+      { id: 'slot-3', x: 840, y: 40, width: 354, height: 531, placeholder: 'Photo 3' },
+      { id: 'slot-4', x: 44, y: 611, width: 354, height: 531, placeholder: 'Photo 4' },
+      { id: 'slot-5', x: 442, y: 611, width: 354, height: 531, placeholder: 'Photo 5' },
+      { id: 'slot-6', x: 840, y: 611, width: 354, height: 531, placeholder: 'Photo 6' },
+      { id: 'slot-7', x: 44, y: 1182, width: 354, height: 531, placeholder: 'Photo 7' },
+      { id: 'slot-8', x: 442, y: 1182, width: 354, height: 531, placeholder: 'Photo 8' },
+      { id: 'slot-9', x: 840, y: 1182, width: 354, height: 531, placeholder: 'Photo 9' },
+    ],
+  },
 ]
 
 export function getTemplateById(id: string) {

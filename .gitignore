@@ -25,3 +25,5 @@ dist-ssr
 worker/.wrangler
 worker/.wrangler/*
 
+.agents/*
+.agent/*

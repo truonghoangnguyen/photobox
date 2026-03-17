@@ -89,36 +89,84 @@ authRoutes.post('/logout', async (context) => {
   return context.json({ success: true })
 })
 
+// import { hashPassword, verifyPassword } from './hashPassword' // cập nhật path cho đúng
+
 authRoutes.post('/change-password', async (context) => {
   const authResult = await requireAuth(context)
-
   if (authResult instanceof Response) {
     return authResult
   }
 
   const body = (await context.req.json<ChangePasswordRequest>().catch(() => null)) as ChangePasswordRequest | null
-
-  if (!body) {
+  if (!body?.currentPassword || !body?.newPassword) {
     return context.json({ error: 'Invalid request body.' }, 400)
   }
 
+  // 1) Lấy hash hiện tại từ DB
   const row = await context.env.DB.prepare(
-    'SELECT password_hash AS passwordHash FROM users WHERE id = ? LIMIT 1',
+    'SELECT password_hash AS passwordHash FROM users WHERE id = ? LIMIT 1'
   )
     .bind(authResult.id)
     .first<{ passwordHash: string | null }>()
 
-  const currentPasswordHash = await hashPassword(body.currentPassword ?? '')
-
-  if ((row?.passwordHash ?? '') !== currentPasswordHash) {
+  const stored = row?.passwordHash ?? ''
+  if (!stored) {
+    // trường hợp hiếm: user chưa có hash
     return context.json({ error: 'Current password is incorrect.' }, 400)
   }
 
-  const nextPasswordHash = await hashPassword(body.newPassword ?? '')
+  // 2) Kiểm tra currentPassword bằng verifyPassword (hỗ trợ cả SHA-256 cũ & PBKDF2 mới)
+  const ok = await verifyPassword(body.currentPassword, stored)
+  if (!ok) {
+    return context.json({ error: 'Current password is incorrect.' }, 400)
+  }
 
+  // (khuyến nghị) chặn đổi sang mật khẩu y hệt
+  // if (await verifyPassword(body.newPassword, stored)) {
+  //   return context.json({ error: 'New password must be different from current password.' }, 400)
+  // }
+
+  // 3) Tạo hash mới PBKDF2 cho newPassword
+  const nextPasswordHash = await hashPassword(body.newPassword)
+
+  // 4) Lưu vào DB
   await context.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .bind(nextPasswordHash, authResult.id)
     .run()
 
   return context.json({ success: true })
 })
+
+// authRoutes.post('/change-password', async (context) => {
+//   const authResult = await requireAuth(context)
+
+//   if (authResult instanceof Response) {
+//     return authResult
+//   }
+
+//   const body = (await context.req.json<ChangePasswordRequest>().catch(() => null)) as ChangePasswordRequest | null
+
+//   if (!body) {
+//     return context.json({ error: 'Invalid request body.' }, 400)
+//   }
+
+//   const row = await context.env.DB.prepare(
+//     'SELECT password_hash AS passwordHash FROM users WHERE id = ? LIMIT 1',
+//   )
+//     .bind(authResult.id)
+//     .first<{ passwordHash: string | null }>()
+
+//   const currentPasswordHash = await hashPassword(body.currentPassword ?? '')
+
+//   if ((row?.passwordHash ?? '') !== currentPasswordHash) {
+//     return context.json({ error: 'Current password is incorrect.' }, 400)
+//   }
+
+//   const nextPasswordHash = await hashPassword(body.newPassword ?? '')
+
+//   await context.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+//     .bind(nextPasswordHash, authResult.id)
+//     .run()
+
+//   return context.json({ success: true })
+// })
